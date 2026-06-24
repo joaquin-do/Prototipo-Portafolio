@@ -1,0 +1,30 @@
+{
+  "name": "prototipo-portafolio",
+  "version": "1.0.0",
+  "description": "Sistema de Recuperacion de Cuenta mediante Contactos de Confianza",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace backend\" \"npm run dev --workspace frontend\"",
+    "install:all": "npm install --workspace backend && npm install --workspace frontend",
+    "build": "npm run build --workspace frontend",
+    "start": "npm run start --workspace backend"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joaquin-do/Prototipo-Portafolio.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/joaquin-do/Prototipo-Portafolio/issues"
+  },
+  "homepage": "https://github.com/joaquin-do/Prototipo-Portafolio#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
+}
