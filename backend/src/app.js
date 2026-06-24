@@ -6,7 +6,48 @@ const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 
-app.use(cors());
+function buildAllowedOrigins() {
+  const origins = new Set([
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+  ]);
+
+  if (process.env.FRONTEND_URL) {
+    process.env.FRONTEND_URL.split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+      .forEach((origin) => origins.add(origin));
+  }
+
+  return origins;
+}
+
+const allowedOrigins = buildAllowedOrigins();
+
+function isVercelOrigin(origin) {
+  try {
+    return /\.vercel\.app$/.test(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+}
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const isAllowed =
+        allowedOrigins.has(origin) || isVercelOrigin(origin);
+
+      callback(null, isAllowed);
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {

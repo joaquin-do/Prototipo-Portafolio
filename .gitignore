@@ -4,3 +4,5 @@ frontend/dist/
 backend/trust-recovery.sqlite
 *.log
 .env
+.env.local
+.env.*.local

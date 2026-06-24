@@ -1,7 +1,27 @@
+const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
-const dbPath = path.join(__dirname, '../../trust-recovery.sqlite');
+function resolveDatabasePath() {
+  if (process.env.DATABASE_PATH) {
+    return process.env.DATABASE_PATH;
+  }
+
+  // En Render el filesystem es efimero; /tmp siempre es escribible.
+  if (process.env.NODE_ENV === 'production') {
+    return '/tmp/trust-recovery.sqlite';
+  }
+
+  return path.join(__dirname, '../../trust-recovery.sqlite');
+}
+
+const dbPath = resolveDatabasePath();
+const dbDir = path.dirname(dbPath);
+
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
 const db = new sqlite3.Database(dbPath);
 
 function run(sql, params = []) {
@@ -148,6 +168,7 @@ async function seedDatabase() {
 }
 
 async function initializeDatabase() {
+  console.log(`SQLite database: ${dbPath}`);
   await createSchema();
   await seedDatabase();
 }

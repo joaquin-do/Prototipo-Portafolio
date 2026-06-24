@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "API del prototipo de recuperacion distribuida",
   "main": "src/server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js"

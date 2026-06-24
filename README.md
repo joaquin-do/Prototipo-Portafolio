@@ -178,3 +178,100 @@ Resultado esperado: la contrasena del usuario se actualiza en SQLite.
 ## Alcance academico
 
 Este prototipo guarda contrasenas en texto plano solo para simplificar la demostracion academica. En un producto real se requeriria hashing seguro, autenticacion robusta, MFA, auditoria, rate limiting, proteccion contra abuso, envio real de notificaciones y verificacion de identidad de contactos.
+
+## Despliegue en produccion (Render + Vercel)
+
+### Arquitectura en produccion
+
+```text
+Usuario
+  |
+  v
+Vercel (React)  ----VITE_API_URL---->  Render (Express API)
+                                              |
+                                              v
+                                        SQLite (/tmp)
+```
+
+### 1. Backend en Render
+
+1. Crear un **Web Service** en [Render](https://render.com).
+2. Conectar el repositorio de GitHub.
+3. Configurar:
+   - **Root Directory**: `backend`
+   - **Runtime**: Node
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+   - **Health Check Path**: `/api/health`
+4. Variables de entorno en Render:
+
+| Variable | Valor ejemplo | Descripcion |
+|----------|---------------|-------------|
+| `NODE_ENV` | `production` | Activa modo produccion |
+| `HOST` | `0.0.0.0` | Requerido por Render |
+| `FRONTEND_URL` | `https://tu-app.vercel.app` | Origen permitido en CORS |
+
+5. Desplegar y copiar la URL publica, por ejemplo: `https://trust-recovery-api.onrender.com`
+
+Alternativa: usar el archivo `render.yaml` en la raiz del repo para crear el servicio automaticamente.
+
+**Nota sobre SQLite en Render:** la base se guarda en `/tmp/trust-recovery.sqlite`. Es efimera: los datos se reinician en cada redeploy o reinicio del servicio. Para este MVP academico es aceptable.
+
+### 2. Frontend en Vercel
+
+1. Crear proyecto en [Vercel](https://vercel.com) importando el mismo repositorio.
+2. Configurar:
+   - **Root Directory**: `frontend`
+   - **Framework Preset**: Vite
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+3. Variable de entorno en Vercel:
+
+| Variable | Valor ejemplo |
+|----------|---------------|
+| `VITE_API_URL` | `https://trust-recovery-api.onrender.com/api` |
+
+Importante: `VITE_API_URL` debe incluir `/api` al final y **no** llevar barra final despues de `api`.
+
+4. Redesplegar el frontend despues de agregar la variable (Vite inyecta env vars en build time).
+
+El archivo `frontend/vercel.json` ya configura rewrites para React Router.
+
+### 3. Conectar frontend y backend
+
+1. Desplegar primero el **backend** en Render.
+2. Verificar healthcheck: `GET https://tu-api.onrender.com/api/health`
+3. Configurar `VITE_API_URL` en Vercel apuntando a esa URL.
+4. Configurar `FRONTEND_URL` en Render con la URL final de Vercel.
+5. Redesplegar ambos si cambias variables de entorno.
+
+### Variables de entorno locales
+
+Copiar los archivos de ejemplo:
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+### Checklist de verificacion
+
+- [ ] `GET /api/health` responde `{ "status": "ok" }` en Render
+- [ ] Render muestra logs: `Trust Recovery API running on 0.0.0.0:XXXX`
+- [ ] Render muestra logs: `SQLite database: /tmp/trust-recovery.sqlite`
+- [ ] Dashboard en Vercel carga metricas sin error de red
+- [ ] Consola del navegador no muestra errores CORS
+- [ ] Crear solicitud de recuperacion con `ana@example.com` funciona
+- [ ] Aprobaciones desde `/approvals` actualizan estado
+- [ ] Cambio de contrasena funciona con solicitud `APPROVED`
+
+### Solucion de problemas comunes
+
+| Problema | Causa probable | Solucion |
+|----------|----------------|----------|
+| Render Exit status 1 | Root Directory incorrecto | Usar `backend` como raiz |
+| Render Exit status 1 | Start command incorrecto | Usar `npm start` |
+| CORS bloqueado | `FRONTEND_URL` no configurada | Agregar URL exacta de Vercel en Render |
+| Frontend no conecta | `VITE_API_URL` ausente | Configurar en Vercel y redesplegar |
+| API 404 en Vercel | URL mal formada | Usar dominio de Render, no de Vercel |
+| Datos perdidos tras redeploy | SQLite efimero en `/tmp` | Esperado en MVP; volver a sembrar datos |
