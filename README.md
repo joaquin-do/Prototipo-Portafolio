@@ -29,7 +29,7 @@ Reglas del prototipo:
 ```text
 trust-recovery-prototype/
   frontend/              React + Vite + React Router + Axios
-  backend/               Node.js + Express + SQLite
+  backend/               Node.js + Express + SQLite (node:sqlite integrado)
     src/
       config/            Conexion SQLite, esquema y datos semilla
       controllers/       Entrada HTTP y respuestas JSON
@@ -217,6 +217,8 @@ Alternativa: usar el archivo `render.yaml` en la raiz del repo para crear el ser
 
 **Nota sobre SQLite en Render:** la base se guarda en `/tmp/trust-recovery.sqlite`. Es efimera: los datos se reinician en cada redeploy o reinicio del servicio. Para este MVP academico es aceptable.
 
+**Motor SQLite:** el backend usa `node:sqlite` (modulo integrado en Node.js 22+). No requiere paquetes npm nativos (`sqlite3` / `better-sqlite3`), evitando errores de GLIBC en Render.
+
 ### 2. Frontend en Vercel
 
 1. Crear proyecto en [Vercel](https://vercel.com) importando el mismo repositorio.
@@ -269,6 +271,7 @@ cp frontend/.env.example frontend/.env
 
 | Problema | Causa probable | Solucion |
 |----------|----------------|----------|
+| Render Exit status 1 | GLIBC / sqlite3 nativo | Usar Node 22+ y `node:sqlite` (sin paquetes sqlite npm) |
 | Render Exit status 1 | Root Directory incorrecto | Usar `backend` como raiz |
 | Render Exit status 1 | Start command incorrecto | Usar `npm start` |
 | CORS bloqueado | `FRONTEND_URL` no configurada | Agregar URL exacta de Vercel en Render |
