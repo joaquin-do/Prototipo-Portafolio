@@ -1,35 +1,41 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
+
+let db = null;
+let dbPath = null;
+let seedStatements = null;
 
 function resolveDatabasePath() {
   if (process.env.DATABASE_PATH) {
     return process.env.DATABASE_PATH;
   }
 
-  // En Render el filesystem es efimero; /tmp siempre es escribible en Linux.
   if (process.env.NODE_ENV === 'production') {
-    return '/tmp/trust-recovery.sqlite';
+    return path.join(os.tmpdir(), 'trust-recovery.sqlite');
   }
 
-  return path.join(__dirname, '../../trust-recovery.sqlite');
+  return path.join(process.cwd(), 'trust-recovery.sqlite');
 }
 
-const dbPath = resolveDatabasePath();
-const dbDir = path.dirname(dbPath);
-
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+function ensureDatabaseDirectory(directory) {
+  if (!fs.existsSync(directory)) {
+    fs.mkdirSync(directory, { recursive: true });
+  }
 }
 
-// Singleton: SQLite integrado en Node.js (sin modulos nativos npm).
-const db = new DatabaseSync(dbPath);
-db.exec('PRAGMA journal_mode = WAL;');
-db.exec('PRAGMA foreign_keys = ON;');
+function getDb() {
+  if (!db) {
+    throw new Error('Base de datos no inicializada. Ejecuta initializeDatabase() primero.');
+  }
+
+  return db;
+}
 
 function run(sql, params = []) {
   try {
-    const result = db.prepare(sql).run(...params);
+    const result = getDb().prepare(sql).run(...params);
     return Promise.resolve({
       id: Number(result.lastInsertRowid),
       changes: result.changes,
@@ -41,7 +47,7 @@ function run(sql, params = []) {
 
 function get(sql, params = []) {
   try {
-    const row = db.prepare(sql).get(...params);
+    const row = getDb().prepare(sql).get(...params);
     return Promise.resolve(row);
   } catch (error) {
     return Promise.reject(error);
@@ -50,15 +56,26 @@ function get(sql, params = []) {
 
 function all(sql, params = []) {
   try {
-    const rows = db.prepare(sql).all(...params);
+    const rows = getDb().prepare(sql).all(...params);
     return Promise.resolve(rows);
   } catch (error) {
     return Promise.reject(error);
   }
 }
 
+function connectDatabase() {
+  dbPath = resolveDatabasePath();
+  ensureDatabaseDirectory(path.dirname(dbPath));
+
+  db = new DatabaseSync(dbPath);
+  db.exec('PRAGMA journal_mode = WAL;');
+  db.exec('PRAGMA foreign_keys = ON;');
+
+  console.log(`[DB] Conexion abierta: ${dbPath}`);
+}
+
 function createSchema() {
-  db.exec(`
+  getDb().exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -93,70 +110,158 @@ function createSchema() {
       FOREIGN KEY (recovery_request_id) REFERENCES recovery_requests(id) ON DELETE CASCADE
     );
   `);
+
+  console.log('[DB] Esquema verificado.');
 }
 
-function seedDatabase() {
-  const existing = db.prepare('SELECT COUNT(*) AS total FROM users').get();
+const SEED_USERS = [
+  { name: 'Ana Demo', email: 'ana@example.com', password: 'demo123' },
+  { name: 'Luis Pendiente', email: 'luis@example.com', password: 'demo123' },
+  { name: 'Sofia Sin Contactos', email: 'sofia@example.com', password: 'demo123' },
+  { name: 'Mario Expirado', email: 'mario@example.com', password: 'demo123' },
+];
 
-  if (existing.total > 0) {
+const SEED_CONTACTS = [
+  { userEmail: 'ana@example.com', contactName: 'Carlos Contacto', contactEmail: 'carlos@example.com' },
+  { userEmail: 'ana@example.com', contactName: 'Diana Contacto', contactEmail: 'diana@example.com' },
+  { userEmail: 'ana@example.com', contactName: 'Elena Contacto', contactEmail: 'elena@example.com' },
+  { userEmail: 'luis@example.com', contactName: 'Fernanda Contacto', contactEmail: 'fernanda@example.com' },
+  { userEmail: 'luis@example.com', contactName: 'Gabriel Contacto', contactEmail: 'gabriel@example.com' },
+  { userEmail: 'luis@example.com', contactName: 'Helena Contacto', contactEmail: 'helena@example.com' },
+  { userEmail: 'mario@example.com', contactName: 'Ivan Contacto', contactEmail: 'ivan@example.com' },
+  { userEmail: 'mario@example.com', contactName: 'Julia Contacto', contactEmail: 'julia@example.com' },
+  { userEmail: 'mario@example.com', contactName: 'Karla Contacto', contactEmail: 'karla@example.com' },
+];
+
+function getSeedStatements() {
+  if (!seedStatements) {
+    const database = getDb();
+    seedStatements = {
+      findUserByEmail: database.prepare('SELECT id FROM users WHERE email = ?'),
+      insertUser: database.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)'),
+      findContact: database.prepare(
+        'SELECT id FROM trusted_contacts WHERE user_id = ? AND contact_email = ?',
+      ),
+      insertContact: database.prepare(
+        'INSERT INTO trusted_contacts (user_id, contact_name, contact_email) VALUES (?, ?, ?)',
+      ),
+      findExpiredRequest: database.prepare(
+        `SELECT id FROM recovery_requests
+         WHERE user_id = ? AND status = 'EXPIRED'
+         LIMIT 1`,
+      ),
+      insertRequest: database.prepare(
+        'INSERT INTO recovery_requests (user_id, status, expires_at, created_at) VALUES (?, ?, ?, ?)',
+      ),
+    };
+  }
+
+  return seedStatements;
+}
+
+function getUserIdByEmail(email) {
+  const user = getSeedStatements().findUserByEmail.get(email);
+  return user ? user.id : null;
+}
+
+function ensureSeedUser({ name, email, password }) {
+  const { insertUser } = getSeedStatements();
+  const existingId = getUserIdByEmail(email);
+  if (existingId) {
+    return existingId;
+  }
+
+  const result = insertUser.run(name, email, password);
+  return Number(result.lastInsertRowid);
+}
+
+function ensureSeedContact(userId, { contactName, contactEmail }) {
+  const { findContact, insertContact } = getSeedStatements();
+  const existing = findContact.get(userId, contactEmail);
+  if (existing) {
     return;
   }
 
-  const insertUser = db.prepare(
-    'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
-  );
-  const insertContact = db.prepare(
-    'INSERT INTO trusted_contacts (user_id, contact_name, contact_email) VALUES (?, ?, ?)',
-  );
-  const insertRequest = db.prepare(
-    'INSERT INTO recovery_requests (user_id, status, expires_at, created_at) VALUES (?, ?, ?, ?)',
-  );
+  insertContact.run(userId, contactName, contactEmail);
+}
 
-  const seed = db.transaction(() => {
-    insertUser.run('Ana Demo', 'ana@example.com', 'demo123');
-    insertUser.run('Luis Pendiente', 'luis@example.com', 'demo123');
-    insertUser.run('Sofia Sin Contactos', 'sofia@example.com', 'demo123');
-    insertUser.run('Mario Expirado', 'mario@example.com', 'demo123');
+function ensureExpiredDemoRequest(userId) {
+  const { findExpiredRequest, insertRequest } = getSeedStatements();
+  const existing = findExpiredRequest.get(userId);
+  if (existing) {
+    return;
+  }
 
-    const users = db.prepare('SELECT id, email FROM users').all();
-    const userByEmail = Object.fromEntries(users.map((user) => [user.email, user.id]));
+  const now = new Date();
+  const expiredAt = new Date(now.getTime() - 60_000).toISOString();
+  const createdAt = new Date(now.getTime() - 11 * 60_000).toISOString();
 
-    const contacts = [
-      [userByEmail['ana@example.com'], 'Carlos Contacto', 'carlos@example.com'],
-      [userByEmail['ana@example.com'], 'Diana Contacto', 'diana@example.com'],
-      [userByEmail['ana@example.com'], 'Elena Contacto', 'elena@example.com'],
-      [userByEmail['luis@example.com'], 'Fernanda Contacto', 'fernanda@example.com'],
-      [userByEmail['luis@example.com'], 'Gabriel Contacto', 'gabriel@example.com'],
-      [userByEmail['luis@example.com'], 'Helena Contacto', 'helena@example.com'],
-      [userByEmail['mario@example.com'], 'Ivan Contacto', 'ivan@example.com'],
-      [userByEmail['mario@example.com'], 'Julia Contacto', 'julia@example.com'],
-      [userByEmail['mario@example.com'], 'Karla Contacto', 'karla@example.com'],
-    ];
+  insertRequest.run(userId, 'EXPIRED', expiredAt, createdAt);
+}
 
-    for (const contact of contacts) {
-      insertContact.run(...contact);
+function seedDatabase() {
+  let usersCreated = 0;
+  let contactsCreated = 0;
+  let requestsCreated = 0;
+  const userIdsByEmail = {};
+
+  for (const user of SEED_USERS) {
+    const before = getUserIdByEmail(user.email);
+    userIdsByEmail[user.email] = ensureSeedUser(user);
+    if (!before) {
+      usersCreated += 1;
+    }
+  }
+
+  for (const contact of SEED_CONTACTS) {
+    const userId = userIdsByEmail[contact.userEmail];
+    if (!userId) {
+      continue;
     }
 
-    const now = new Date();
-    const expiredAt = new Date(now.getTime() - 60_000).toISOString();
-    const createdAt = new Date(now.getTime() - 11 * 60_000).toISOString();
+    const { findContact } = getSeedStatements();
+    const before = findContact.get(userId, contact.contactEmail);
+    ensureSeedContact(userId, contact);
+    if (!before) {
+      contactsCreated += 1;
+    }
+  }
 
-    insertRequest.run(userByEmail['mario@example.com'], 'EXPIRED', expiredAt, createdAt);
-  });
+  const marioId = userIdsByEmail['mario@example.com'];
+  if (marioId) {
+    const { findExpiredRequest } = getSeedStatements();
+    const before = findExpiredRequest.get(marioId);
+    ensureExpiredDemoRequest(marioId);
+    if (!before) {
+      requestsCreated += 1;
+    }
+  }
 
-  seed();
+  console.log(
+    `[SEED] Ejecutado: ${usersCreated} usuarios, ${contactsCreated} contactos, ${requestsCreated} solicitudes nuevas.`,
+  );
 }
 
 async function initializeDatabase() {
-  console.log(`SQLite database: ${dbPath}`);
+  if (db) {
+    console.log('[DB] Ya inicializada, omitiendo reinicio.');
+    return;
+  }
+
+  console.log('[DB] Inicializando base de datos...');
+  connectDatabase();
   createSchema();
   seedDatabase();
+  console.log('[DB] Inicializada correctamente.');
 }
 
 module.exports = {
   all,
-  db,
+  get db() {
+    return db;
+  },
   get,
+  getDbPath: () => dbPath,
   initializeDatabase,
   run,
 };
