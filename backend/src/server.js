@@ -1,16 +1,22 @@
 const app = require('./app');
 const { initializeDatabase } = require('./config/database');
 
-const PORT = process.env.PORT || 4000;
+const PORT = Number(process.env.PORT) || 4000;
 
 process.on('unhandledRejection', (reason) => {
   console.error('[SERVER] Promesa rechazada sin capturar:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[SERVER] Excepcion no capturada:', error);
+  process.exit(1);
 });
 
 async function startServer() {
   try {
     console.log('[SERVER] Iniciando backend...');
     console.log(`[SERVER] NODE_ENV=${process.env.NODE_ENV || 'development'}`);
+    console.log(`[SERVER] Node ${process.versions.node}`);
 
     await initializeDatabase();
 

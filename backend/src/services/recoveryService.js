@@ -23,6 +23,11 @@ async function requestRecovery({ email }) {
     throw createHttpError('El correo del usuario es obligatorio.', 400);
   }
 
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(normalizedEmail)) {
+    throw createHttpError('El correo no tiene un formato valido.', 400);
+  }
+
   const user = await userRepository.getUserByEmail(normalizedEmail);
   if (!user) {
     throw createHttpError('No existe un usuario con ese correo.', 404);
@@ -69,6 +74,10 @@ async function applyDecision({ recoveryRequestId, contactEmail, decision }) {
 
   if (!requestId || !normalizedEmail) {
     throw createHttpError('recoveryRequestId y contactEmail son obligatorios.', 400);
+  }
+
+  if (!['APPROVED', 'REJECTED'].includes(decision)) {
+    throw createHttpError('La decision debe ser APPROVED o REJECTED.', 400);
   }
 
   const request = await recoveryRepository.getRecoveryRequestById(requestId);

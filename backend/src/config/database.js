@@ -6,6 +6,7 @@ const { DatabaseSync } = require('node:sqlite');
 let db = null;
 let dbPath = null;
 let seedStatements = null;
+const statementCache = new Map();
 
 function resolveDatabasePath() {
   if (process.env.DATABASE_PATH) {
@@ -20,9 +21,25 @@ function resolveDatabasePath() {
 }
 
 function ensureDatabaseDirectory(directory) {
-  if (!fs.existsSync(directory)) {
-    fs.mkdirSync(directory, { recursive: true });
+  if (directory === '.' || directory === os.tmpdir()) {
+    return;
   }
+
+  try {
+    fs.mkdirSync(directory, { recursive: true });
+  } catch (error) {
+    if (error.code !== 'EEXIST') {
+      throw error;
+    }
+  }
+}
+
+function prepareCached(sql) {
+  if (!statementCache.has(sql)) {
+    statementCache.set(sql, getDb().prepare(sql));
+  }
+
+  return statementCache.get(sql);
 }
 
 function getDb() {
@@ -35,7 +52,7 @@ function getDb() {
 
 function run(sql, params = []) {
   try {
-    const result = getDb().prepare(sql).run(...params);
+    const result = prepareCached(sql).run(...params);
     return Promise.resolve({
       id: Number(result.lastInsertRowid),
       changes: result.changes,
@@ -47,7 +64,7 @@ function run(sql, params = []) {
 
 function get(sql, params = []) {
   try {
-    const row = getDb().prepare(sql).get(...params);
+    const row = prepareCached(sql).get(...params);
     return Promise.resolve(row);
   } catch (error) {
     return Promise.reject(error);
@@ -56,7 +73,7 @@ function get(sql, params = []) {
 
 function all(sql, params = []) {
   try {
-    const rows = getDb().prepare(sql).all(...params);
+    const rows = prepareCached(sql).all(...params);
     return Promise.resolve(rows);
   } catch (error) {
     return Promise.reject(error);
@@ -205,6 +222,7 @@ function seedDatabase() {
   let requestsCreated = 0;
   const userIdsByEmail = {};
 
+  try {
   for (const user of SEED_USERS) {
     const before = getUserIdByEmail(user.email);
     userIdsByEmail[user.email] = ensureSeedUser(user);
@@ -240,6 +258,10 @@ function seedDatabase() {
   console.log(
     `[SEED] Ejecutado: ${usersCreated} usuarios, ${contactsCreated} contactos, ${requestsCreated} solicitudes nuevas.`,
   );
+  } catch (error) {
+    console.error('[SEED] Error al poblar datos demo:', error.message);
+    throw error;
+  }
 }
 
 async function initializeDatabase() {
@@ -248,11 +270,19 @@ async function initializeDatabase() {
     return;
   }
 
+  assertNodeVersion();
   console.log('[DB] Inicializando base de datos...');
   connectDatabase();
   createSchema();
   seedDatabase();
   console.log('[DB] Inicializada correctamente.');
+}
+
+function assertNodeVersion() {
+  const [major] = process.versions.node.split('.').map(Number);
+  if (major < 22) {
+    throw new Error(`Node.js 22+ es obligatorio para node:sqlite. Version actual: ${process.versions.node}`);
+  }
 }
 
 module.exports = {

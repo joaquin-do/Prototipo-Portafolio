@@ -12,6 +12,13 @@ function validateContactPayload(payload) {
     throw error;
   }
 
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(contactEmail)) {
+    const error = new Error('contactEmail no tiene un formato valido.');
+    error.statusCode = 400;
+    throw error;
+  }
+
   return { userId, contactName, contactEmail };
 }
 

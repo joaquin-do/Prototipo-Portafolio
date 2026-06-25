@@ -8,6 +8,15 @@ function assertRequired(value, fieldName) {
   }
 }
 
+function assertEmail(email) {
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(email)) {
+    const error = new Error('El correo no tiene un formato valido.');
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
 async function registerUser(payload) {
   const name = payload.name?.trim();
   const email = payload.email?.trim().toLowerCase();
@@ -16,6 +25,7 @@ async function registerUser(payload) {
   assertRequired(name, 'El nombre');
   assertRequired(email, 'El correo');
   assertRequired(password, 'La contraseña');
+  assertEmail(email);
 
   const existingUser = await userRepository.getUserByEmail(email);
   if (existingUser) {

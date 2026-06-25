@@ -26,7 +26,8 @@ const allowedOrigins = buildAllowedOrigins();
 
 function isVercelOrigin(origin) {
   try {
-    return /\.vercel\.app$/.test(new URL(origin).hostname);
+    const { hostname, protocol } = new URL(origin);
+    return protocol === 'https:' && /\.vercel\.app$/i.test(hostname);
   } catch {
     return false;
   }
@@ -43,9 +44,15 @@ app.use(
       const isAllowed =
         allowedOrigins.has(origin) || isVercelOrigin(origin);
 
+      if (!isAllowed && process.env.NODE_ENV !== 'production') {
+        console.warn(`[CORS] Origen rechazado: ${origin}`);
+      }
+
       callback(null, isAllowed);
     },
     credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type'],
   }),
 );
 app.use(express.json());
