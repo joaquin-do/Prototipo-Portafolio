@@ -33,7 +33,7 @@ export default function Register() {
     setLoading(true)
     try {
       await register({ name: form.name, email: form.email, password: form.password })
-      navigate('/login')
+      navigate('/dashboard')
     } catch (err) {
       setServerError(err.response?.data?.message ?? 'Error al registrar')
     } finally {
@@ -52,7 +52,7 @@ export default function Register() {
         <SubmitButton loading={loading}>Registrarme</SubmitButton>
       </form>
       <p style={{ marginTop: '1rem', fontSize: '0.875rem', textAlign: 'center' }}>
-        ¿Ya tienes cuenta? <Link to="/login">Inicia sesión</Link>
+        <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
       </p>
     </AuthCard>
   )

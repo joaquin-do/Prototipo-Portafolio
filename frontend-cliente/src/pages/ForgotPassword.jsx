@@ -43,7 +43,7 @@ export default function ForgotPassword() {
         <SubmitButton loading={loading}>Enviar instrucciones</SubmitButton>
       </form>
       <p style={{ marginTop: '1rem', fontSize: '0.875rem', textAlign: 'center' }}>
-        <Link to="/login">Volver al inicio de sesión</Link>
+        <Link to="/register">Volver al registro</Link>
       </p>
     </AuthCard>
   )
