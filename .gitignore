@@ -6,3 +6,12 @@ backend/trust-recovery.sqlite
 .env
 .env.local
 .env.*.local
+node_modules/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+dist/
+build/
+.env
+.env.local
+*.log
