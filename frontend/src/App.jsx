@@ -1,6 +1,17 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import api from './api'
+import {
+  addContact,
+  approveRecovery,
+  getContactsByUserId,
+  getDashboardStats,
+  getRecoveryRequests,
+  getUsers,
+  registerUser,
+  rejectRecovery,
+  requestRecovery,
+  resetPassword,
+} from './api'
 import './App.css'
 
 function getErrorMessage(error) {
@@ -28,8 +39,8 @@ function Dashboard() {
     async function loadDashboard() {
       try {
         const [statsResponse, usersResponse] = await Promise.all([
-          api.get('/recovery/dashboard'),
-          api.get('/users'),
+          getDashboardStats(),
+          getUsers(),
         ])
         setStats(statsResponse.data)
         setUsers(usersResponse.data)
@@ -113,7 +124,7 @@ function RegisterUser() {
     setError('')
 
     try {
-      const response = await api.post('/users/register', form)
+      const response = await registerUser(form)
       setMessage(`Cuenta creada para ${response.data.email}.`)
       setForm({ name: '', email: '', password: '' })
     } catch (requestError) {
@@ -160,7 +171,7 @@ function TrustedContacts() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api.get('/users').then((response) => setUsers(response.data)).catch((requestError) => {
+    getUsers().then((response) => setUsers(response.data)).catch((requestError) => {
       setError(getErrorMessage(requestError))
     })
   }, [])
@@ -175,7 +186,7 @@ function TrustedContacts() {
   }, [selectedUserId])
 
   async function loadContacts(userId) {
-    const response = await api.get(`/contacts/${userId}`)
+    const response = await getContactsByUserId(userId)
     setContacts(response.data)
   }
 
@@ -189,7 +200,7 @@ function TrustedContacts() {
     setError('')
 
     try {
-      await api.post('/contacts', {
+      await addContact({
         userId: selectedUserId,
         contactName: form.contactName,
         contactEmail: form.contactEmail,
@@ -280,7 +291,7 @@ function RecoveryRequest() {
     setError('')
 
     try {
-      const response = await api.post('/recovery/request', { email })
+      const response = await requestRecovery({ email })
       setCreatedRequest(response.data)
       setEmail('')
     } catch (requestError) {
@@ -325,7 +336,7 @@ function Approvals() {
 
   async function loadRequests() {
     try {
-      const response = await api.get('/recovery')
+      const response = await getRecoveryRequests()
       setRequests(response.data)
     } catch (requestError) {
       setError(getErrorMessage(requestError))
@@ -337,10 +348,11 @@ function Approvals() {
     setError('')
 
     try {
-      const response = await api.post(`/recovery/${action}`, {
-        recoveryRequestId,
-        contactEmail,
-      })
+      const payload = { recoveryRequestId, contactEmail }
+      const response =
+        action === 'approve'
+          ? await approveRecovery(payload)
+          : await rejectRecovery(payload)
       setMessage(`Solicitud #${response.data.id}: ${response.data.status}.`)
       await loadRequests()
     } catch (requestError) {
@@ -420,7 +432,7 @@ function ResetPassword() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api.get('/recovery').then((response) => {
+    getRecoveryRequests().then((response) => {
       setRequests(response.data.filter((request) => request.status === 'APPROVED'))
     }).catch((requestError) => {
       setError(getErrorMessage(requestError))
@@ -433,7 +445,7 @@ function ResetPassword() {
     setError('')
 
     try {
-      const response = await api.post('/recovery/reset-password', {
+      const response = await resetPassword({
         recoveryRequestId,
         newPassword,
       })

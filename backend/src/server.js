@@ -1,5 +1,6 @@
 const app = require('./app');
 const { initializeDatabase } = require('./config/database');
+const { logApiRoutes } = require('./config/routeManifest');
 
 const PORT = Number(process.env.PORT) || 4000;
 
@@ -20,9 +21,10 @@ async function startServer() {
 
     await initializeDatabase();
 
+    logApiRoutes();
+
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`[SERVER] Server running on 0.0.0.0:${PORT}`);
-      console.log('[SERVER] Healthcheck: GET /api/health');
     });
   } catch (error) {
     console.error('[SERVER] Error fatal al iniciar:', error);

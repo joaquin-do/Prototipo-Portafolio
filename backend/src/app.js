@@ -5,19 +5,33 @@ const recoveryRoutes = require('./routes/recoveryRoutes');
 const userRoutes = require('./routes/userRoutes');
 
 const app = express();
+const apiRouter = express.Router();
+
+function addOriginsFromEnv(envKey, origins) {
+  const value = process.env[envKey];
+  if (!value) {
+    return;
+  }
+
+  value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+    .forEach((origin) => origins.add(origin));
+}
 
 function buildAllowedOrigins() {
-  const origins = new Set([
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-  ]);
+  const origins = new Set();
 
-  if (process.env.FRONTEND_URL) {
-    process.env.FRONTEND_URL.split(',')
-      .map((origin) => origin.trim())
-      .filter(Boolean)
-      .forEach((origin) => origins.add(origin));
+  if (process.env.NODE_ENV !== 'production') {
+    origins.add('http://localhost:5173');
+    origins.add('http://127.0.0.1:5173');
+    origins.add('http://localhost:5174');
+    origins.add('http://127.0.0.1:5174');
   }
+
+  addOriginsFromEnv('FRONTEND_URL', origins);
+  addOriginsFromEnv('CLIENT_URL', origins);
 
   return origins;
 }
@@ -57,13 +71,15 @@ app.use(
 );
 app.use(express.json());
 
-app.get('/api/health', (req, res) => {
+apiRouter.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.use('/api/users', userRoutes);
-app.use('/api/contacts', contactRoutes);
-app.use('/api/recovery', recoveryRoutes);
+apiRouter.use('/users', userRoutes);
+apiRouter.use('/contacts', contactRoutes);
+apiRouter.use('/recovery', recoveryRoutes);
+
+app.use('/api', apiRouter);
 
 app.use((req, res) => {
   res.status(404).json({ message: 'Ruta no encontrada.' });

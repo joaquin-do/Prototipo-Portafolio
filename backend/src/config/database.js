@@ -278,6 +278,18 @@ async function initializeDatabase() {
   console.log('[DB] Inicializada correctamente.');
 }
 
+function closeDatabase() {
+  if (!db) {
+    return;
+  }
+
+  db.close();
+  db = null;
+  dbPath = null;
+  seedStatements = null;
+  statementCache.clear();
+}
+
 function assertNodeVersion() {
   const [major] = process.versions.node.split('.').map(Number);
   if (major < 22) {
@@ -287,6 +299,7 @@ function assertNodeVersion() {
 
 module.exports = {
   all,
+  closeDatabase,
   get db() {
     return db;
   },
