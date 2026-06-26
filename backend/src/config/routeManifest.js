@@ -1,6 +1,7 @@
 const API_ROUTES = [
   { method: 'GET', path: '/api/health' },
   { method: 'POST', path: '/api/users/register' },
+  { method: 'POST', path: '/api/users/login' },
   { method: 'GET', path: '/api/users' },
   { method: 'POST', path: '/api/contacts' },
   { method: 'GET', path: '/api/contacts/:userId' },

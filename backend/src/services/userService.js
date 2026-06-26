@@ -41,7 +41,26 @@ async function getUsers() {
   return userRepository.getUsers();
 }
 
+async function loginUser(payload) {
+  const email = payload.email?.trim().toLowerCase();
+  const password = payload.password;
+
+  assertRequired(email, 'El correo');
+  assertRequired(password, 'La contraseña');
+  assertEmail(email);
+
+  const user = await userRepository.getUserByEmail(email);
+  if (!user || user.password !== password) {
+    const error = new Error('Correo o contraseña incorrectos.');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  return userRepository.getUserById(user.id);
+}
+
 module.exports = {
   getUsers,
+  loginUser,
   registerUser,
 };

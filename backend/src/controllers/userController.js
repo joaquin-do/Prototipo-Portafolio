@@ -18,7 +18,17 @@ async function getUsers(req, res, next) {
   }
 }
 
+async function loginUser(req, res, next) {
+  try {
+    const user = await userService.loginUser(req.body);
+    res.json(user);
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getUsers,
+  loginUser,
   registerUser,
 };

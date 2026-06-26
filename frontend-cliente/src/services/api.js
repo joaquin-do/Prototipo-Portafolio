@@ -3,9 +3,16 @@ import axios from 'axios'
 export const ENDPOINTS = {
   users: {
     register: '/users/register',
+    login: '/users/login',
+  },
+  contacts: {
+    base: '/contacts',
+    byUser: (userId) => `/contacts/${userId}`,
   },
   recovery: {
     request: '/recovery/request',
+    list: '/recovery',
+    resetPassword: '/recovery/reset-password',
   },
 }
 
@@ -42,7 +49,11 @@ const api = axios.create({
 })
 
 export const register = (data) => api.post(ENDPOINTS.users.register, data)
-
+export const login = (data) => api.post(ENDPOINTS.users.login, data)
+export const addContact = (data) => api.post(ENDPOINTS.contacts.base, data)
+export const getContactsByUserId = (userId) => api.get(ENDPOINTS.contacts.byUser(userId))
 export const requestRecovery = (data) => api.post(ENDPOINTS.recovery.request, data)
+export const getRecoveryRequests = () => api.get(ENDPOINTS.recovery.list)
+export const resetPassword = (data) => api.post(ENDPOINTS.recovery.resetPassword, data)
 
 export default api

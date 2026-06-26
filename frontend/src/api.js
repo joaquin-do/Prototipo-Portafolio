@@ -3,6 +3,7 @@ import axios from 'axios'
 export const ENDPOINTS = {
   users: {
     register: '/users/register',
+    login: '/users/login',
     list: '/users',
   },
   contacts: {
