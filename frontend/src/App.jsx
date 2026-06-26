@@ -145,7 +145,7 @@ function RegisterUser() {
           <input name="email" type="email" value={form.email} onChange={updateField} required />
         </label>
         <label>
-          Contrasena
+          Contraseña
           <input
             name="password"
             type="password"
@@ -458,7 +458,7 @@ function ResetPassword() {
 
   return (
     <section className="page narrow">
-      <h1>Restablecer contrasena</h1>
+      <h1>Restablecer contraseña</h1>
       <form className="card form" onSubmit={submit}>
         <label>
           Solicitud aprobada
@@ -476,7 +476,7 @@ function ResetPassword() {
           </select>
         </label>
         <label>
-          Nueva contrasena
+          Nueva contraseña
           <input
             type="password"
             value={newPassword}
@@ -484,7 +484,7 @@ function ResetPassword() {
             required
           />
         </label>
-        <button type="submit">Cambiar contrasena</button>
+        <button type="submit">Cambiar contraseña</button>
       </form>
       <Notice>{message}</Notice>
       <Notice type="error">{error}</Notice>
